@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#08090A" />
+  <title>Redtrabajo — Find Work Fast in Bolivia</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏗️%3C/text%3E%3C/svg%3E" />
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: #08090A; color: #F1EFE9; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
+    #root { min-height: 100vh; }
+    button { font-family: inherit; }
+    input, textarea, select { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252A2F; border-radius: 3px; }
+    @keyframes bounce {
+      0% { transform: translate(-50%, -120%); opacity: 0; }
+      60% { transform: translate(-50%, -95%); }
+      100% { transform: translate(-50%, -100%); opacity: 1; }
+    }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-type="module">
+    const { useState, useRef, useEffect } = React;
+
+    const C = {
+      bg: "#08090A", surface: "#111315", card: "#181B1E", border: "#252A2F",
+      accent: "#F59E0B", blue: "#3B82F6", green: "#10B981", red: "#EF4444", purple: "#A855F7",
+      text: "#F1EFE9", sub: "#9CA3AF", faint: "#374151",
+    };
+
+    const ADMIN_PASSWORD = "Jorge";
+
+    const LS_KEY = "redtrabajo_v1";
+    const loadState = () => {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    };
+    const saveState = (s) => {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch {}
+    };
+
+    const SEED_WORKERS = [
+      { id: "w1", ci: "7823401", name: "Carlos Mamani", skill: "Electrician", exp: "5 years", city: "La Paz", phone: "71234567", available: true, lat: 50, lng: 40 },
+      { id: "w2", ci: "5612890", name: "Ana Flores", skill: "Cook", exp: "3 years", city: "Cochabamba", phone: "76543210", available: true, lat: 60, lng: 55 },
+      { id: "w3", ci: "9034512", name: "Pedro Quispe", skill: "Gardener", exp: "8 years", city: "Santa Cruz", phone: "78901234", available: true, lat: 70, lng: 30 },
+      { id: "w4", ci: "4128763", name: "Maria Condori", skill: "Cleaner", exp: "2 years", city: "La Paz", phone: "72345678", available: true, lat: 45, lng: 50 },
+      { id: "w5", ci: "3301299", name: "Juan Vargas", skill: "Plumber", exp: "6 years", city: "La Paz", phone: "73456789", available: true, lat: 55, lng: 45 },
+    ];
+    const SEED_CUSTOMERS = [{ id: "c1", name: "Luis Torres", city: "La Paz", phone: "70111222" }];
+    const SEED_CHATS = [];
+
+    const Avatar = ({ name, size = 40 }) => {
+      const letters = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+      const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+      return <div style={{ width: size, height: size, borderRadius: "50%", background: `hsl(${hue},50%,28%)`, border: `2px solid hsl(${hue},50%,42%)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: size * 0.34, flexShrink: 0 }}>{letters}</div>;
+    };
+
+    const Tag = ({ children, color = C.accent }) => (
+      <span style={{ background: color + "22", color, border: `1px solid ${color}40`, borderRadius: 6, padding: "2px 9px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", whiteSpace: "nowrap" }}>{children}</span>
+    );
+
+    const Card = ({ children, style = {}, onClick }) => (
+      <div onClick={onClick} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px", cursor: onClick ? "pointer" : "default", transition: "border-color 0.15s", ...style }}
+        onMouseEnter={e => onClick && (e.currentTarget.style.borderColor = C.accent + "55")}
+        onMouseLeave={e => onClick && (e.currentTarget.style.borderColor = C.border)}
+      >{children}</div>
+    );
+
+    const Btn = ({ children, onClick, variant = "primary", small, full, disabled }) => {
+      const s = {
+        primary: { background: C.accent, color: "#08090A", border: "none" },
+        outline: { background: "transparent", color: C.accent, border: `1.5px solid ${C.accent}` },
+        ghost: { background: "transparent", color: C.sub, border: `1.5px solid ${C.border}` },
+        danger: { background: C.red, color: "#fff", border: "none" },
+        green: { background: C.green, color: "#fff", border: "none" },
+      };
+      return <button onClick={onClick} disabled={disabled} style={{ ...s[variant], borderRadius: 10, padding: small ? "6px 14px" : "11px 20px", fontWeight: 800, fontSize: small ? 12 : 14, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, width: full ? "100%" : "auto", letterSpacing: 0.2, transition: "opacity 0.15s" }} onMouseEnter={e => !disabled && (e.currentTarget.style.opacity = "0.8")} onMouseLeave={e => !disabled && (e.currentTarget.style.opacity = "1")}>{children}</button>;
+    };
+
+    const Input = ({ label, placeholder, value, onChange, type = "text", icon }) => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {label && <label style={{ fontSize: 11, fontWeight: 700, color: C.sub, letterSpacing: 0.5, textTransform: "uppercase" }}>{label}</label>}
+        <div style={{ position: "relative" }}>
+          {icon && <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15 }}>{icon}</span>}
+          <input type={type} placeholder={placeholder} value={value} onChange={onChange} style={{ width: "100%", background: "#0D0F11", border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: icon ? "10px 14px 10px 37px" : "10px 14px", fontSize: 14, outline: "none" }}
+            onFocus={e => e.target.style.borderColor = C.accent}
+            onBlur={e => e.target.style.borderColor = C.border} />
+        </div>
+      </div>
+    );
+
+    const Logo = ({ size = 20 }) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <span style={{ fontSize: size * 1.3 }}>🏗️</span>
+        <span style={{ fontFamily: "Georgia, serif", fontWeight: 900, fontSize: size, letterSpacing: -0.5 }}>
+          <span style={{ color: C.accent }}>Red</span><span style={{ color: C.text }}>trabajo</span>
+        </span>
+      </div>
+    );
+
+    const Back = ({ onClick, label = "Back" }) => (
+      <button onClick={onClick} style={{ background: "none", border: "none", color: C.sub, fontSize: 13, cursor: "pointer", padding: "0 0 16px 0", display: "block" }}>← {label}</button>
+    );
+
+    const MapPin = ({ lat, lng, onSet, readOnly = false, height = 220 }) => {
+      const ref = useRef(null);
+      const handleClick = (e) => {
+        if (readOnly) return;
+        const rect = ref.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        onSet(Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y)));
+      };
+      return (
+        <div ref={ref} onClick={handleClick} style={{
+          width: "100%", height, background: "linear-gradient(135deg, #1a2e1f 0%, #1a2520 50%, #141a1f 100%)",
+          border: `1px solid ${C.border}`, borderRadius: 12, position: "relative", overflow: "hidden",
+          cursor: readOnly ? "default" : "crosshair",
+        }}>
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.4 }}>
+            <defs>
+              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2a3b2f" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            <line x1="0" y1="30%" x2="100%" y2="25%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="0" y1="55%" x2="100%" y2="60%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="0" y1="80%" x2="100%" y2="78%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="25%" y1="0" x2="28%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="55%" y1="0" x2="52%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="80%" y1="0" x2="78%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <ellipse cx="30%" cy="40%" rx="40" ry="25" fill="#2a4a32" opacity="0.5" />
+            <ellipse cx="75%" cy="68%" rx="35" ry="22" fill="#2a4a32" opacity="0.5" />
+          </svg>
+          <div style={{ position: "absolute", top: 8, left: 10, color: C.sub, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, pointerEvents: "none" }}>🗺️ REDTRABAJO MAP</div>
+          {!readOnly && lat === null && (
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, textAlign: "center", color: C.sub, fontSize: 13, fontWeight: 600, pointerEvents: "none", transform: "translateY(-50%)" }}>
+              👆 Tap anywhere to drop your pin
+            </div>
+          )}
+          {lat !== null && lng !== null && (
+            <div style={{ position: "absolute", left: `${lng}%`, top: `${lat}%`, transform: "translate(-50%, -100%)", pointerEvents: "none", animation: "bounce 0.4s ease-out" }}>
+              <div style={{ fontSize: 32, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.6))" }}>📍</div>
+            </div>
+          )}
+          {lat !== null && !readOnly && (
+            <div style={{ position: "absolute", bottom: 8, left: 10, right: 10, background: "#000a", borderRadius: 6, padding: "5px 10px", color: C.accent, fontSize: 11, fontWeight: 700, textAlign: "center" }}>
+              ✓ Pin placed — tap elsewhere to move it
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const MapWithWorkers = ({ workers, onPick, pickedWorkerId, customerLat, customerLng }) => {
+      const ref = useRef(null);
+      return (
+        <div ref={ref} style={{
+          width: "100%", height: 240, background: "linear-gradient(135deg, #1a2e1f 0%, #1a2520 50%, #141a1f 100%)",
+          border: `1px solid ${C.border}`, borderRadius: 12, position: "relative", overflow: "hidden",
+        }}>
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.4 }}>
+            <defs>
+              <pattern id="grid2" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2a3b2f" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid2)" />
+            <line x1="0" y1="30%" x2="100%" y2="25%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="0" y1="55%" x2="100%" y2="60%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="0" y1="80%" x2="100%" y2="78%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="25%" y1="0" x2="28%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="55%" y1="0" x2="52%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <line x1="80%" y1="0" x2="78%" y2="100%" stroke="#3a5443" strokeWidth="3" opacity="0.6" />
+            <ellipse cx="30%" cy="40%" rx="40" ry="25" fill="#2a4a32" opacity="0.5" />
+            <ellipse cx="75%" cy="68%" rx="35" ry="22" fill="#2a4a32" opacity="0.5" />
+          </svg>
+          <div style={{ position: "absolute", top: 8, left: 10, color: C.sub, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, pointerEvents: "none" }}>🗺️ NEARBY WORKERS</div>
+          {customerLat !== null && customerLng !== null && (
+            <div style={{ position: "absolute", left: `${customerLng}%`, top: `${customerLat}%`, transform: "translate(-50%, -100%)", pointerEvents: "none", zIndex: 3 }}>
+              <div style={{ fontSize: 28, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.6))" }}>🏠</div>
+            </div>
+          )}
+          {workers.map(w => (
+            <div key={w.id} onClick={(e) => { e.stopPropagation(); onPick && onPick(w); }}
+              style={{ position: "absolute", left: `${w.lng}%`, top: `${w.lat}%`, transform: "translate(-50%, -100%)", cursor: "pointer", zIndex: pickedWorkerId === w.id ? 5 : 2 }}
+              title={w.name}>
+              <div style={{ fontSize: pickedWorkerId === w.id ? 34 : 26, filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.6))", transition: "font-size 0.15s" }}>📍</div>
+            </div>
+          ))}
+        </div>
+      );
+    };
+
+    function Landing({ onRole }) {
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 400 }}>
+            <div style={{ textAlign: "center", marginBottom: 44 }}>
+              <Logo size={32} />
+              <p style={{ color: C.sub, fontSize: 14, marginTop: 10 }}>Bolivia's fastest service-matching platform</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Card onClick={() => onRole("worker")} style={{ textAlign: "center", padding: "22px 20px" }}>
+                <div style={{ fontSize: 38, marginBottom: 8 }}>👷</div>
+                <div style={{ fontWeight: 800, fontSize: 18, fontFamily: "Georgia, serif" }}>I'm a Worker</div>
+                <div style={{ color: C.sub, fontSize: 13, marginTop: 4 }}>Offer your services & get hired</div>
+              </Card>
+              <Card onClick={() => onRole("customer")} style={{ textAlign: "center", padding: "22px 20px" }}>
+                <div style={{ fontSize: 38, marginBottom: 8 }}>🧑</div>
+                <div style={{ fontWeight: 800, fontSize: 18, fontFamily: "Georgia, serif" }}>I'm a Customer</div>
+                <div style={{ color: C.sub, fontSize: 13, marginTop: 4 }}>Find nearby workers for any job</div>
+              </Card>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
+                <div style={{ flex: 1, height: 1, background: C.border }} />
+                <span style={{ fontSize: 11, color: C.faint }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: C.border }} />
+              </div>
+              <Btn variant="ghost" full onClick={() => onRole("admin-login")}>🔐 Admin Login</Btn>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function AdminLogin({ onSuccess, onBack }) {
+      const [pw, setPw] = useState(""); const [err, setErr] = useState("");
+      const go = () => pw === ADMIN_PASSWORD ? onSuccess() : (setErr("Wrong password."), setPw(""));
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 360 }}>
+            <Back onClick={onBack} />
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ fontSize: 44, marginBottom: 10 }}>🔐</div>
+              <h2 style={{ fontFamily: "Georgia, serif", fontSize: 24, margin: 0 }}>Admin Access</h2>
+              <p style={{ color: C.sub, fontSize: 13, marginTop: 6 }}>Enter your admin password to continue</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Input label="Password" placeholder="Admin password" type="password" value={pw} onChange={e => { setPw(e.target.value); setErr(""); }} icon="🔑" />
+              {err && <div style={{ color: C.red, fontSize: 13, fontWeight: 600 }}>{err}</div>}
+              <Btn full onClick={go} disabled={!pw}>Enter Admin Panel</Btn>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function AdminDashboard({ workers, customers, chats, onLogout, onReset }) {
+      const [tab, setTab] = useState("workers"); const [q, setQ] = useState("");
+      const fw = workers.filter(w => [w.name, w.ci, w.skill, w.city].some(v => v.toLowerCase().includes(q.toLowerCase())));
+      const fc = customers.filter(c => [c.name, c.city, c.phone].some(v => v.toLowerCase().includes(q.toLowerCase())));
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, color: C.text }}>
+          <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "13px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Logo size={17} /><Tag color={C.red}>ADMIN</Tag></div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn small variant="danger" onClick={onReset}>Reset</Btn>
+              <Btn small variant="ghost" onClick={onLogout}>Logout</Btn>
+            </div>
+          </div>
+          <div style={{ maxWidth: 440, margin: "0 auto", padding: "20px 20px 60px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
+              {[{ label: "Workers", val: workers.length, color: C.accent },
+                { label: "Customers", val: customers.length, color: C.blue },
+                { label: "Chats", val: chats.length, color: C.purple }].map(s => (
+                <Card key={s.label} style={{ textAlign: "center", padding: "13px 8px" }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: s.color, fontFamily: "Georgia, serif" }}>{s.val}</div>
+                  <div style={{ color: C.sub, fontSize: 11, marginTop: 2 }}>{s.label}</div>
+                </Card>
+              ))}
+            </div>
+            <div style={{ marginBottom: 14 }}><Input placeholder="Search by name, CI, skill, city…" value={q} onChange={e => setQ(e.target.value)} icon="🔍" /></div>
+            <div style={{ display: "flex", gap: 4, background: C.surface, borderRadius: 10, padding: 4, marginBottom: 14 }}>
+              {[["workers", `👷 Workers (${workers.length})`], ["customers", `🧑 Customers (${customers.length})`], ["chats", `💬 Chats (${chats.length})`]].map(([t, label]) => (
+                <button key={t} onClick={() => setTab(t)} style={{ flex: 1, background: tab === t ? C.card : "transparent", border: tab === t ? `1px solid ${C.border}` : "1px solid transparent", borderRadius: 8, padding: "8px 4px", color: tab === t ? C.text : C.sub, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{label}</button>
+              ))}
+            </div>
+            {tab === "workers" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {fw.map(w => (
+                  <Card key={w.id}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <Avatar name={w.name} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: 15 }}>{w.name}</div>
+                        <div style={{ color: C.accent, fontSize: 12, fontWeight: 600 }}>{w.skill} · {w.exp}</div>
+                        <div style={{ color: C.sub, fontSize: 11, marginTop: 1 }}>CI: {w.ci} · 📍 {w.city} · 📱 {w.phone}</div>
+                        <div style={{ marginTop: 6 }}><Tag color={w.available ? C.green : C.red}>{w.available ? "Available" : "Waiting"}</Tag></div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {!fw.length && <div style={{ textAlign: "center", color: C.sub, padding: "30px 0" }}>No workers found</div>}
+              </div>
+            )}
+            {tab === "customers" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {fc.map(c => (
+                  <Card key={c.id}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <Avatar name={c.name} />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 15 }}>{c.name}</div>
+                        <div style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>📍 {c.city} · 📱 {c.phone}</div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {!fc.length && <div style={{ textAlign: "center", color: C.sub, padding: "30px 0" }}>No customers yet</div>}
+              </div>
+            )}
+            {tab === "chats" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {chats.map(ch => {
+                  const w = workers.find(x => x.id === ch.workerId);
+                  const c = customers.find(x => x.id === ch.customerId);
+                  return (
+                    <Card key={ch.id}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                        <Tag color={C.blue}>{c?.name || "?"}</Tag>
+                        <span style={{ color: C.faint }}>→</span>
+                        <Tag color={C.accent}>{w?.name || "?"}</Tag>
+                        <span style={{ color: C.sub, fontSize: 11, marginLeft: "auto" }}>{ch.messages.length} msgs</span>
+                      </div>
+                      <div style={{ color: C.sub, fontSize: 12, fontStyle: "italic" }}>
+                        Last: "{ch.messages[ch.messages.length - 1]?.text || "—"}"
+                      </div>
+                    </Card>
+                  );
+                })}
+                {!chats.length && <div style={{ textAlign: "center", color: C.sub, padding: "30px 0" }}>No chats yet</div>}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function WorkerRegister({ onDone, onBack }) {
+      const [f, setF] = useState({ ci: "", name: "", skill: "", exp: "", city: "", phone: "", lat: null, lng: null });
+      const [loading, setLoading] = useState(false);
+      const [done, setDone] = useState(false); const [err, setErr] = useState("");
+      const valid = f.ci.length >= 5 && f.name.trim() && f.skill.trim() && f.lat !== null;
+
+      const submit = () => {
+        if (!valid) { setErr("CI, name, skill, and map pin are required."); return; }
+        setLoading(true); setErr("");
+        setTimeout(() => { setLoading(false); setDone(true); }, 400);
+      };
+
+      if (done) {
+        const worker = { ...f, id: "w" + Date.now(), available: true };
+        return (
+          <div style={{ paddingTop: 10 }}>
+            <div style={{ textAlign: "center", marginBottom: 22 }}>
+              <div style={{ fontSize: 46 }}>✅</div>
+              <h2 style={{ fontFamily: "Georgia, serif", color: C.green, margin: "8px 0 4px" }}>You're Live!</h2>
+              <p style={{ color: C.sub, fontSize: 13 }}>Customers can now find you on the map</p>
+            </div>
+            <Card style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", gap: 13, alignItems: "center" }}>
+                <Avatar name={f.name} size={50} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "Georgia, serif" }}>{f.name}</div>
+                  <div style={{ color: C.accent, fontSize: 13, fontWeight: 600 }}>{f.skill}</div>
+                  <div style={{ color: C.sub, fontSize: 12, marginTop: 2 }}>CI: {f.ci} · 📍 {f.city}</div>
+                </div>
+              </div>
+            </Card>
+            <Btn full variant="green" onClick={() => onDone(worker)}>✓ Available to Contact — Go to Inbox</Btn>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ paddingTop: 4 }}>
+          <Back onClick={onBack} />
+          <h2 style={{ fontFamily: "Georgia, serif", fontSize: 22, margin: "0 0 4px" }}>Create Your Worker Profile</h2>
+          <p style={{ color: C.sub, fontSize: 13, marginBottom: 22 }}>Customers will find you on the map</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+            <Input label="National ID (CI) *" placeholder="e.g. 7823401" value={f.ci} onChange={e => setF({ ...f, ci: e.target.value.replace(/\D/g, "") })} icon="🪪" />
+            <Input label="Full Name *" placeholder="e.g. Carlos Mamani" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} icon="👤" />
+            <Input label="Service / Skill *" placeholder="e.g. Electrician, Gardener" value={f.skill} onChange={e => setF({ ...f, skill: e.target.value })} icon="🔧" />
+            <Input label="Experience" placeholder="e.g. 3 years" value={f.exp} onChange={e => setF({ ...f, exp: e.target.value })} icon="📅" />
+            <Input label="City" placeholder="e.g. La Paz" value={f.city} onChange={e => setF({ ...f, city: e.target.value })} icon="🏙️" />
+            <Input label="Phone / WhatsApp" placeholder="e.g. 71234567" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} icon="📱" />
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.sub, letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>📍 Pin Your Work Location *</label>
+              <MapPin lat={f.lat} lng={f.lng} onSet={(lng, lat) => setF({ ...f, lat, lng })} />
+            </div>
+            {err && <div style={{ color: C.red, fontSize: 13 }}>{err}</div>}
+            <Btn full onClick={submit} disabled={loading}>{loading ? "Creating profile…" : "Create Profile & Go Live ✨"}</Btn>
+          </div>
+        </div>
+      );
+    }
+
+    function WorkerInbox({ worker, chats, customers, onOpenChat, onToggleAvailable, onBack }) {
+      const myChats = chats.filter(ch => ch.workerId === worker.id);
+      return (
+        <div style={{ paddingTop: 4, paddingBottom: 60 }}>
+          <Back onClick={onBack} label="Sign out" />
+          <Card style={{ marginBottom: 16, borderColor: worker.available ? C.green + "55" : C.red + "55" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <Avatar name={worker.name} size={48} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "Georgia, serif" }}>{worker.name}</div>
+                <div style={{ color: C.accent, fontSize: 12 }}>{worker.skill} · {worker.city}</div>
+                <div style={{ marginTop: 5 }}>
+                  <Tag color={worker.available ? C.green : C.red}>{worker.available ? "✓ Available" : "⏸ Waiting"}</Tag>
+                </div>
+              </div>
+              <Btn small variant={worker.available ? "ghost" : "green"} onClick={onToggleAvailable}>
+                {worker.available ? "Pause" : "Go Live"}
+              </Btn>
+            </div>
+          </Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h3 style={{ fontFamily: "Georgia, serif", fontSize: 18, margin: 0 }}>📬 Inbox</h3>
+            {myChats.length > 0 && <span style={{ color: C.sub, fontSize: 12 }}>{myChats.length} conversation{myChats.length === 1 ? "" : "s"}</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {myChats.length === 0 && (
+              <Card style={{ textAlign: "center", padding: "28px 16px" }}>
+                <div style={{ fontSize: 36, marginBottom: 6 }}>📭</div>
+                <div style={{ color: C.sub, fontSize: 13 }}>No messages yet</div>
+                <div style={{ color: C.faint, fontSize: 12, marginTop: 4 }}>Customers will appear here when they contact you</div>
+              </Card>
+            )}
+            {myChats.map(ch => {
+              const c = customers.find(x => x.id === ch.customerId);
+              const last = ch.messages[ch.messages.length - 1];
+              return (
+                <Card key={ch.id} onClick={() => onOpenChat(ch)}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <Avatar name={c?.name || "?"} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>{c?.name}</div>
+                        <div style={{ color: C.faint, fontSize: 11 }}>{last?.time}</div>
+                      </div>
+                      <div style={{ color: C.sub, fontSize: 12, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {last ? (last.from === "worker" ? "You: " : "") + last.text : "No messages yet"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function CustomerRegister({ onDone, onBack }) {
+      const [f, setF] = useState({ name: "", city: "", phone: "", lat: null, lng: null });
+      const valid = f.name.trim() && f.lat !== null;
+      return (
+        <div style={{ paddingTop: 4 }}>
+          <Back onClick={onBack} />
+          <h2 style={{ fontFamily: "Georgia, serif", fontSize: 22, margin: "0 0 4px" }}>Create Customer Profile</h2>
+          <p style={{ color: C.sub, fontSize: 13, marginBottom: 22 }}>Pin your home location to find nearby workers</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+            <Input label="Your Name *" placeholder="e.g. Luis Torres" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} icon="👤" />
+            <Input label="City" placeholder="e.g. La Paz" value={f.city} onChange={e => setF({ ...f, city: e.target.value })} icon="🏙️" />
+            <Input label="Phone" placeholder="e.g. 70111222" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} icon="📱" />
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.sub, letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>🏠 Pin Your Home Location *</label>
+              <MapPin lat={f.lat} lng={f.lng} onSet={(lng, lat) => setF({ ...f, lat, lng })} />
+            </div>
+            <Btn full onClick={() => valid && onDone({ ...f, id: "c" + Date.now() })} disabled={!valid}>Continue to Search →</Btn>
+          </div>
+        </div>
+      );
+    }
+
+    function CustomerSearch({ customer, workers, onPickWorker, onGoInbox, myChatCount, onBack }) {
+      const [q, setQ] = useState("");
+      const [picked, setPicked] = useState(null);
+      const filtered = workers.filter(w => w.available && [w.skill, w.name, w.city].some(v => v.toLowerCase().includes(q.toLowerCase())));
+      return (
+        <div style={{ paddingTop: 4, paddingBottom: 60 }}>
+          <Back onClick={onBack} label="Sign out" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div>
+              <h2 style={{ fontFamily: "Georgia, serif", fontSize: 20, margin: 0 }}>Hi {customer.name.split(" ")[0]} 👋</h2>
+              <p style={{ color: C.sub, fontSize: 13, margin: "2px 0 0" }}>What service do you need?</p>
+            </div>
+            <Btn small variant="outline" onClick={onGoInbox}>💬 Inbox{myChatCount > 0 ? ` (${myChatCount})` : ""}</Btn>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <Input placeholder="Search: cut yard, electrician, plumber…" value={q} onChange={e => setQ(e.target.value)} icon="🔍" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <MapWithWorkers workers={filtered} onPick={setPicked} pickedWorkerId={picked?.id} customerLat={customer.lat} customerLng={customer.lng} />
+          </div>
+          {picked && (
+            <Card style={{ marginBottom: 14, borderColor: C.accent + "55" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <Avatar name={picked.name} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>{picked.name}</div>
+                  <div style={{ color: C.accent, fontSize: 12 }}>{picked.skill} · {picked.exp}</div>
+                  <div style={{ color: C.sub, fontSize: 11, marginTop: 1 }}>📍 {picked.city}</div>
+                </div>
+                <Btn small variant="green" onClick={() => onPickWorker(picked)}>💬 Contact</Btn>
+              </div>
+            </Card>
+          )}
+          <div style={{ color: C.sub, fontSize: 12, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>
+            {filtered.length} available worker{filtered.length === 1 ? "" : "s"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {filtered.map(w => (
+              <Card key={w.id} onClick={() => setPicked(w)} style={picked?.id === w.id ? { borderColor: C.accent } : {}}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <Avatar name={w.name} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 14 }}>{w.name}</div>
+                    <div style={{ color: C.accent, fontSize: 12 }}>{w.skill}</div>
+                    <div style={{ color: C.sub, fontSize: 11 }}>📍 {w.city} · {w.exp}</div>
+                  </div>
+                  <Btn small variant="outline" onClick={(e) => { e.stopPropagation(); onPickWorker(w); }}>Contact</Btn>
+                </div>
+              </Card>
+            ))}
+            {!filtered.length && <div style={{ textAlign: "center", color: C.sub, padding: "30px 0" }}>No workers match your search</div>}
+          </div>
+        </div>
+      );
+    }
+
+    function CustomerInbox({ customer, chats, workers, onOpenChat, onBack }) {
+      const myChats = chats.filter(ch => ch.customerId === customer.id);
+      return (
+        <div style={{ paddingTop: 4 }}>
+          <Back onClick={onBack} label="Back to search" />
+          <h3 style={{ fontFamily: "Georgia, serif", fontSize: 22, margin: "0 0 14px" }}>💬 Your Conversations</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {myChats.length === 0 && (
+              <Card style={{ textAlign: "center", padding: "28px 16px" }}>
+                <div style={{ fontSize: 36, marginBottom: 6 }}>📭</div>
+                <div style={{ color: C.sub, fontSize: 13 }}>No conversations yet</div>
+              </Card>
+            )}
+            {myChats.map(ch => {
+              const w = workers.find(x => x.id === ch.workerId);
+              const last = ch.messages[ch.messages.length - 1];
+              return (
+                <Card key={ch.id} onClick={() => onOpenChat(ch)}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <Avatar name={w?.name || "?"} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>{w?.name}</div>
+                        <div style={{ color: C.faint, fontSize: 11 }}>{last?.time}</div>
+                      </div>
+                      <div style={{ color: C.accent, fontSize: 11, marginTop: 2 }}>{w?.skill}</div>
+                      <div style={{ color: C.sub, fontSize: 12, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {last ? (last.from === "customer" ? "You: " : "") + last.text : "No messages yet"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function ChatScreen({ chat, currentUserRole, worker, customer, onSend, onBack }) {
+      const [text, setText] = useState("");
+      const scrollRef = useRef(null);
+      useEffect(() => { scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight); }, [chat.messages.length]);
+      const otherName = currentUserRole === "worker" ? customer?.name : worker?.name;
+      const otherSubtitle = currentUserRole === "worker" ? `📱 ${customer?.phone || ""} · 📍 ${customer?.city || ""}` : `${worker?.skill} · 📍 ${worker?.city}`;
+      const send = () => {
+        if (!text.trim()) return;
+        const now = new Date();
+        const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        onSend({ from: currentUserRole, text: text.trim(), time });
+        setText("");
+      };
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" }}>
+          <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}>
+            <button onClick={onBack} style={{ background: "none", border: "none", color: C.text, fontSize: 20, cursor: "pointer", padding: 0 }}>‹</button>
+            <Avatar name={otherName || "?"} size={36} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>{otherName}</div>
+              <div style={{ color: C.sub, fontSize: 11 }}>{otherSubtitle}</div>
+            </div>
+          </div>
+          <div ref={scrollRef} style={{ flex: 1, overflow: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {chat.messages.length === 0 && (
+              <div style={{ textAlign: "center", color: C.sub, padding: 30, fontSize: 13 }}>Say hi! 👋</div>
+            )}
+            {chat.messages.map((m, i) => {
+              const mine = m.from === currentUserRole;
+              return (
+                <div key={i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "78%" }}>
+                  <div style={{
+                    background: mine ? C.accent : C.card,
+                    color: mine ? "#08090A" : C.text,
+                    borderRadius: 14,
+                    borderBottomRightRadius: mine ? 4 : 14,
+                    borderBottomLeftRadius: mine ? 14 : 4,
+                    padding: "8px 13px", fontSize: 14, lineHeight: 1.4,
+                    border: mine ? "none" : `1px solid ${C.border}`,
+                  }}>{m.text}</div>
+                  <div style={{ color: C.faint, fontSize: 10, textAlign: mine ? "right" : "left", marginTop: 3, padding: "0 4px" }}>{m.time}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px", display: "flex", gap: 8, background: C.surface }}>
+            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Type a message…"
+              style={{ flex: 1, background: "#0D0F11", border: `1px solid ${C.border}`, borderRadius: 20, color: C.text, padding: "10px 16px", fontSize: 14, outline: "none" }} />
+            <button onClick={send} disabled={!text.trim()} style={{ background: C.accent, border: "none", borderRadius: "50%", width: 42, height: 42, color: "#08090A", fontSize: 18, cursor: text.trim() ? "pointer" : "not-allowed", opacity: text.trim() ? 1 : 0.5, flexShrink: 0 }}>➤</button>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const saved = loadState();
+      const [scr, setScr] = useState("landing");
+      const [workers, setWorkers] = useState(saved?.workers || SEED_WORKERS);
+      const [customers, setCustomers] = useState(saved?.customers || SEED_CUSTOMERS);
+      const [chats, setChats] = useState(saved?.chats || SEED_CHATS);
+      const [myWorker, setMyWorker] = useState(null);
+      const [myCustomer, setMyCustomer] = useState(null);
+      const [activeChatId, setActiveChatId] = useState(null);
+      useEffect(() => { saveState({ workers, customers, chats }); }, [workers, customers, chats]);
+
+      const reset = () => {
+        if (!window.confirm("Reset ALL data to defaults?")) return;
+        localStorage.removeItem(LS_KEY);
+        setWorkers(SEED_WORKERS); setCustomers(SEED_CUSTOMERS); setChats(SEED_CHATS);
+        setMyWorker(null); setMyCustomer(null); setActiveChatId(null);
+      };
+
+      const startChat = (workerId, customerId) => {
+        const existing = chats.find(ch => ch.workerId === workerId && ch.customerId === customerId);
+        if (existing) return existing.id;
+        const id = "ch" + Date.now();
+        setChats(p => [...p, { id, workerId, customerId, messages: [] }]);
+        return id;
+      };
+      const sendMsg = (chatId, msg) => setChats(p => p.map(ch => ch.id === chatId ? { ...ch, messages: [...ch.messages, msg] } : ch));
+
+      if (scr === "landing") return <Landing onRole={setScr} />;
+      if (scr === "admin-login") return <AdminLogin onSuccess={() => setScr("admin")} onBack={() => setScr("landing")} />;
+      if (scr === "admin") return <AdminDashboard workers={workers} customers={customers} chats={chats} onLogout={() => setScr("landing")} onReset={reset} />;
+
+      const Shell = ({ children, role }) => (
+        <div style={{ background: C.bg, minHeight: "100vh", color: C.text }}>
+          <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Logo size={17} />
+            <Tag color={role === "worker" ? C.accent : C.blue}>{role === "worker" ? "👷 Worker" : "🧑 Customer"}</Tag>
+          </div>
+          <div style={{ maxWidth: 440, margin: "0 auto", padding: "16px 20px 60px" }}>{children}</div>
+        </div>
+      );
+
+      if (scr === "worker") return <Shell role="worker"><WorkerRegister onBack={() => setScr("landing")} onDone={(w) => { setWorkers(p => [...p, w]); setMyWorker(w); setScr("worker-inbox"); }} /></Shell>;
+      if (scr === "worker-inbox" && myWorker) return <Shell role="worker"><WorkerInbox worker={myWorker} chats={chats} customers={customers} onOpenChat={(ch) => { setActiveChatId(ch.id); setScr("worker-chat"); }} onToggleAvailable={() => { const u = { ...myWorker, available: !myWorker.available }; setMyWorker(u); setWorkers(p => p.map(w => w.id === myWorker.id ? u : w)); }} onBack={() => { setMyWorker(null); setScr("landing"); }} /></Shell>;
+      if (scr === "worker-chat" && myWorker && activeChatId) {
+        const chat = chats.find(c => c.id === activeChatId);
+        const customer = customers.find(c => c.id === chat?.customerId);
+        return <ChatScreen chat={chat} currentUserRole="worker" worker={myWorker} customer={customer} onSend={(m) => sendMsg(activeChatId, m)} onBack={() => setScr("worker-inbox")} />;
+      }
+      if (scr === "customer") return <Shell role="customer"><CustomerRegister onBack={() => setScr("landing")} onDone={(c) => { setCustomers(p => [...p, c]); setMyCustomer(c); setScr("customer-search"); }} /></Shell>;
+      if (scr === "customer-search" && myCustomer) {
+        const myChatCount = chats.filter(ch => ch.customerId === myCustomer.id).length;
+        return <Shell role="customer"><CustomerSearch customer={myCustomer} workers={workers} myChatCount={myChatCount} onPickWorker={(w) => { const cid = startChat(w.id, myCustomer.id); setActiveChatId(cid); setScr("customer-chat"); }} onGoInbox={() => setScr("customer-inbox")} onBack={() => { setMyCustomer(null); setScr("landing"); }} /></Shell>;
+      }
+      if (scr === "customer-inbox" && myCustomer) return <Shell role="customer"><CustomerInbox customer={myCustomer} chats={chats} workers={workers} onOpenChat={(ch) => { setActiveChatId(ch.id); setScr("customer-chat"); }} onBack={() => setScr("customer-search")} /></Shell>;
+      if (scr === "customer-chat" && myCustomer && activeChatId) {
+        const chat = chats.find(c => c.id === activeChatId);
+        const worker = workers.find(w => w.id === chat?.workerId);
+        return <ChatScreen chat={chat} currentUserRole="customer" worker={worker} customer={myCustomer} onSend={(m) => sendMsg(activeChatId, m)} onBack={() => setScr("customer-search")} />;
+      }
+      return <Landing onRole={setScr} />;
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
